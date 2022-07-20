@@ -5,6 +5,19 @@
     "version": "1.0.0",
     "assetBundlePatterns": [
       "**/*"
-    ]
+    ],
+    "plugins": [
+      "@react-native-firebase/app",
+      "expo-build-properties"
+    ],
+    "android": {
+      "package": "com.rockethelp",
+      "googleServicesFile": "./google-services.json"
+    },
+    "ios": {
+      "bundleIdentifier": "com.rockethelp",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "useFrameworks": "static"
+    }
   }
 }
