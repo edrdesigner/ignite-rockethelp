@@ -20,14 +20,17 @@ import { Order, OrderProps } from '../components/Order';
 import { Alert } from 'react-native';
 import { dateFormat } from '../utils/firestoreDateFormat';
 import { Loading } from '../components/Loading';
+import { useAuthContext } from '../contexts/AuthContext';
 
 export function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const { colors } = useTheme();
+  const { user } = useAuthContext();
   const navigation = useNavigation();
   const [statusSelected, setStatusSelected] = useState<'open' | 'closed'>(
     'open'
   );
+  const [userFilter, setUserFilter] = useState<'mine' | 'all'>('all');
   const [orders, setOrders] = useState<OrderProps[]>([]);
 
   function handleNewOrder() {
@@ -50,28 +53,33 @@ export function Home() {
   useEffect(() => {
     setIsLoading(true);
 
-    const subscriber = firestore()
+    let query = firestore()
       .collection('orders')
-      .where('status', '==', statusSelected)
-      .onSnapshot((snapshot) => {
-        const data = snapshot.docs.map((doc) => {
-          const { patrimony, description, status, created_at } = doc.data();
+      .where('status', '==', statusSelected);
 
-          return {
-            id: doc.id,
-            patrimony,
-            description,
-            status,
-            when: dateFormat(created_at),
-          };
-        });
+    if (userFilter === 'mine') {
+      query = query.where('user_uid', '==', user?.uid);
+    }
 
-        setOrders(data);
-        setIsLoading(false);
+    const subscriber = query.onSnapshot((snapshot) => {
+      const data = snapshot.docs.map((doc) => {
+        const { patrimony, description, status, created_at } = doc.data();
+
+        return {
+          id: doc.id,
+          patrimony,
+          description,
+          status,
+          when: dateFormat(created_at),
+        };
       });
 
+      setOrders(data);
+      setIsLoading(false);
+    });
+
     return subscriber;
-  }, [statusSelected]);
+  }, [statusSelected, userFilter]);
 
   return (
     <VStack flex={1} bg="gray.700" pb={6}>
@@ -100,6 +108,22 @@ export function Home() {
         >
           <Heading color="gray.100">Solicitações</Heading>
           <Text color="gray.200">{orders.length}</Text>
+        </HStack>
+
+        <HStack space={3} mb={2}>
+          <Filter
+            type="closed"
+            title="Todas"
+            onPress={() => setUserFilter('all')}
+            isActive={userFilter === 'all'}
+          />
+
+          <Filter
+            type="closed"
+            title="Minhas"
+            onPress={() => setUserFilter('mine')}
+            isActive={userFilter === 'mine'}
+          />
         </HStack>
 
         <HStack space={3} mb={8}>

@@ -1,33 +1,51 @@
 import { useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { VStack } from 'native-base';
+import { useForm } from 'react-hook-form';
+import * as zod from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigation } from '@react-navigation/native';
 import firestore from '@react-native-firebase/firestore';
 
 import { Header } from '../components/Header';
-import { Input } from '../components/Input';
 import { Button } from '../components/Button';
+import { useAuthContext } from '../contexts/AuthContext';
+import { FormInput } from '../components/FormInput';
+
+const signInValidationSchema = zod.object({
+  patrimony: zod.string({ required_error: 'O patrimônio é obrigatório' }),
+  description: zod.string({ required_error: 'A descrição é obrigatória' }),
+});
+
+type CreateNewOrderFormData = zod.infer<typeof signInValidationSchema>;
 
 export function Register() {
+  const { user } = useAuthContext();
   const [isLoading, setIsLoading] = useState(false);
-  const [patrimony, setPatrimony] = useState('');
-  const [description, setDescription] = useState('');
   const navigation = useNavigation();
 
-  function handleNewOrderRegister() {
-    if (!patrimony || !description) {
-      return Alert.alert('Registrar', 'Preencha todos os campos.');
-    }
+  const {
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm<CreateNewOrderFormData>({
+    resolver: zodResolver(signInValidationSchema),
+  });
+
+  function handleNewOrderRegister(data: CreateNewOrderFormData) {
+    const newOrder = {
+      ...data,
+      user_uid: user?.uid,
+      status: 'open',
+      created_at: firestore.FieldValue.serverTimestamp() as any,
+    };
 
     setIsLoading(true);
 
     firestore()
       .collection('orders')
       .add({
-        patrimony,
-        description,
-        status: 'open',
-        created_at: firestore.FieldValue.serverTimestamp(),
+        ...newOrder,
       })
       .then(() => {
         Alert.alert('Solicitação', 'Solicitação registrada com sucesso.');
@@ -44,29 +62,33 @@ export function Register() {
   }
 
   return (
-    <VStack flex={1} p={6} bg="gray.600">
-      <Header title="Solicitação" />
-      <Input
-        placeholder="Número do patrimônio"
-        mt={4}
-        value={patrimony}
-        onChangeText={setPatrimony}
-      />
-      <Input
-        placeholder="Descrição do problema"
-        flex={1}
-        mt={5}
-        textAlignVertical="top"
-        value={description}
-        onChangeText={setDescription}
-        multiline
-      />
-      <Button
-        title="Cadastrar"
-        mt={5}
-        onPress={handleNewOrderRegister}
-        isLoading={isLoading}
-      />
-    </VStack>
+    <TouchableWithoutFeedback style={{ flex: 1 }} onPress={Keyboard.dismiss}>
+      <VStack flex={1} p={6} bg="gray.600">
+        <Header title="Solicitação" />
+        <FormInput
+          placeholder="Número do patrimônio"
+          mt={4}
+          name="patrimony"
+          control={control}
+          error={errors.patrimony?.message}
+        />
+        <FormInput
+          placeholder="Descrição do problema"
+          flex={1}
+          mt={5}
+          textAlignVertical="top"
+          name="description"
+          control={control}
+          error={errors.description?.message}
+          multiline
+        />
+        <Button
+          title="Cadastrar"
+          mt={5}
+          onPress={handleSubmit(handleNewOrderRegister)}
+          isLoading={isLoading}
+        />
+      </VStack>
+    </TouchableWithoutFeedback>
   );
 }
